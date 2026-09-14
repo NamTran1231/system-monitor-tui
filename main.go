@@ -3,9 +3,10 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/charmbracelet/lipgloss"
 )
 
-func main() {
+func printStats() {
 	cpuUsage, _ := GetCPUStats()
 
 	cpuData, err := json.MarshalIndent(cpuUsage, "", "  ")
@@ -27,4 +28,28 @@ func main() {
 
 	fmt.Println("Memory:")
 	fmt.Println(string(memData))
+
+	ProcessData, _ := GetProcesses(10)
+
+	data, err := json.MarshalIndent(ProcessData, "", "  ")
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	fmt.Println(string(data))
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+}
+
+func main() {
+	style := lipgloss.NewStyle()
+
+	fmt.Println("Test 0%:")
+	fmt.Println(ProgressBar(0, style))
+
+	fmt.Println("Test 32.8%:")
+	fmt.Println(ProgressBar(32.8, style))
 }

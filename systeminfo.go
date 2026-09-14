@@ -1,5 +1,7 @@
 package main
 
+// func GetCPUStats() func getMEMStats()  func GetProcesses(n int)
+
 import (
 	"math"
 	"sort"
@@ -86,10 +88,10 @@ type ProcessInfo struct {
 }
 
 func GetProcesses(n int) ([]ProcessInfo, error) {
-	processes, err = process.Processes()
+	processes, err := process.Processes()
 
 	if err != nil {
-		return
+		return nil, err
 	}
 
 	var processInfos []ProcessInfo
