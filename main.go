@@ -1,55 +1,42 @@
 package main
 
 import (
-	"encoding/json"
-	"fmt"
+	"log"
+
+	"github.com/charmbracelet/bubbles/table"
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
 
-func printStats() {
-	cpuUsage, _ := GetCPUStats()
-
-	cpuData, err := json.MarshalIndent(cpuUsage, "", "  ")
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-
-	fmt.Println("CPU Percentage:")
-	fmt.Println(string(cpuData))
-
-	memUsage, _ := getMEMStats()
-
-	memData, err := json.MarshalIndent(memUsage, "", "  ")
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-
-	fmt.Println("Memory:")
-	fmt.Println(string(memData))
-
-	ProcessData, _ := GetProcesses(10)
-
-	data, err := json.MarshalIndent(ProcessData, "", "  ")
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-	fmt.Println(string(data))
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-
-}
-
 func main() {
-	style := lipgloss.NewStyle()
+	tableStyle := table.DefaultStyles()
+	tableStyle.Selected = lipgloss.NewStyle().Background(Color.Green)
 
-	fmt.Println("Test 0%:")
-	fmt.Println(ProgressBar(0, style))
+	processTable := table.New(
+		table.WithColumns([]table.Column{
+			{Title: "PID", Width: 10},
+			{Title: "Name", Width: 25},
+			{Title: "CPU", Width: 12},
+			{Title: "MEM", Width: 12},
+			{Title: "Username", Width: 12},
+			{Title: "Time", Width: 12},
+		}),
+		table.WithRows([]table.Row{}),
+		table.WithFocused(true),
+		table.WithHeight(20),
+		table.WithStyles(tableStyle),
+	)
 
-	fmt.Println("Test 32.8%:")
-	fmt.Println(ProgressBar(32.8, style))
+	m := model{
+		processTable: processTable,
+		tableStyle:   tableStyle,
+		baseStyle:    lipgloss.NewStyle(),
+		viewStyle:    lipgloss.NewStyle(),
+	}
+
+	p := tea.NewProgram(m, tea.WithAltScreen())
+
+	if _, err := p.Run(); err != nil {
+		log.Fatalf("Error running program: %v", err)
+	}
 }

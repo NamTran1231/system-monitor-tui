@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/charmbracelet/bubbles/table"
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/shirou/gopsutil/v4/cpu"
 	"github.com/shirou/gopsutil/v4/mem"
@@ -189,4 +190,101 @@ func ProgressBar(percentage float64, baseStyle lipgloss.Style) string {
 		Render(strings.Repeat("|", totalBars-fillBars))
 
 	return baseStyle.Render(fmt.Sprintf("[%s%s]", filled, empty))
+}
+
+// Model (Init)
+func (m model) Init() tea.Cmd {
+	return tickEvery()
+}
+
+func tickEvery() tea.Cmd {
+	return tea.Every(time.Second, func(t time.Time) tea.Msg {
+		return TickMsg(t)
+	})
+}
+
+// Model (Update)
+func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+
+	// Handles terminal resize events and updates dimensions
+	case tea.WindowSizeMsg:
+		m.width = msg.Width
+		m.height = msg.Height
+
+	// Handles keyboard input
+	case tea.KeyMsg:
+		switch msg.String() {
+		// Toggles focus on the process table
+		case "esc":
+			if m.processTable.Focused() {
+				// Table is currently focused -> Defocus and reset the selected row style
+				m.tableStyle.Selected = m.baseStyle
+				m.processTable.SetStyles(m.tableStyle)
+				m.processTable.Blur()
+			} else {
+				// Table is unfocused -> Focus it and apply the highlight background to the selected row
+				m.tableStyle.Selected = m.tableStyle.Selected.Background(Color.Green)
+				m.processTable.SetStyles(m.tableStyle)
+				m.processTable.Focus()
+			}
+
+		// Navigates up in the process table if it is focused
+		case "up", "k":
+			if m.processTable.Focused() {
+				m.processTable.MoveUp(1)
+			}
+
+		// Navigates down in the process table if it is focused
+		case "down", "j":
+			if m.processTable.Focused() {
+				m.processTable.MoveDown(1)
+			}
+
+		// Quits the application
+		case "q", "ctrl+c":
+			return m, tea.Quit
+		}
+
+	// Handles periodic timer tick event
+	case TickMsg:
+		// Update the timestamp of the latest fetch
+		m.lastUpdate = time.Time(msg)
+
+		// 1. Fetch latest CPU usage stats
+		cpuStats, err := GetCPUStats()
+		if err == nil {
+			m.CpuUsage = cpuStats
+		}
+
+		// 2. Fetch latest Virtual Memory stats
+		vMem, err := mem.VirtualMemory()
+		if err == nil {
+			m.MemUsage = *vMem
+		}
+
+		// 3. Fetch top processes and update table rows
+		procs, err := GetProcesses(10)
+		if err == nil {
+			var rows []table.Row
+			for _, p := range procs {
+				memStr, memUnit := convertBytes(p.Memory)
+				rows = append(rows, table.Row{
+					fmt.Sprintf("%d", p.PID),
+					p.Name,
+					fmt.Sprintf("%.2f%%", p.CPUPercent),
+					fmt.Sprintf("%s %s", memStr, memUnit),
+					p.Username,
+					p.RunningTime,
+				})
+			}
+			m.processTable.SetRows(rows)
+		}
+
+		// Re-arm the timer to trigger the next TickMsg in 1 second[cite: 3]
+		return m, tickEvery()
+	}
+
+	// Return unchanged model and no-op command for unhandled messages
+	return m, nil
 }
